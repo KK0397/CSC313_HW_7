@@ -1,7 +1,7 @@
 // javac -classpath ".;C:\Program Files\lwjgl-release-3.3.4-custom\*" CubeSpinner.java
 // java -classpath ".;C:\Program Files\lwjgl-release-3.3.4-custom\*" CubeSpinner
 
-// To add lwjgl jars: ctrl+alt+shift+s -> modules -> + -> select folder -> "apply"
+// ...To add lwjgl jars: ctrl+alt+shift+s -> modules -> + -> select folder -> "apply"
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
