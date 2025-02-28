@@ -1,8 +1,3 @@
-// javac -classpath ".;C:\Program Files\lwjgl-release-3.3.4-custom\*" CubeSpinner.java
-// java -classpath ".;C:\Program Files\lwjgl-release-3.3.4-custom\*" CubeSpinner
-
-// To add lwjgl jars: ctrl+alt+shift+s -> modules -> + -> select folder -> "apply"
-
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
@@ -29,6 +24,8 @@ public class CubeSpinner {
     private float angleX = 0.0f;
     private float angleY = 0.0f;
     private float speed = 0.1f;
+    private boolean isDragging = false;
+    private double dragStartX = 0, dragStartY = 0;
 
     public void run() {
         init();
@@ -49,62 +46,87 @@ public class CubeSpinner {
         if (!glfwInit()) {
             throw new IllegalArgumentException("Unable to initialize GLFW");
         }
-            // Configure GLFW
-            glfwDefaultWindowHints();
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2); //3);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1); //2);
-            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-            // Create the window
-            window = glfwCreateWindow(300, 300, "Cube Spinner", NULL, NULL);
-            if (window == NULL) {
-                throw new RuntimeException("Failed to create the GLFW window");
+        // Configure GLFW
+        glfwDefaultWindowHints();
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+
+        // Create the window
+        window = glfwCreateWindow(300, 300, "Cube Spinner", NULL, NULL);
+        if (window == NULL) {
+            throw new RuntimeException("Failed to create the GLFW window");
+        }
+
+        // Set up a key callback
+        glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
+            if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
+                glfwSetWindowShouldClose(window, true);
             }
-            // Setupt a key callback. It will be called every time a key is pressed, repeated or released.
-            glfwSetKeyCallback(window, (window, key, scancode, action, mods) ->
-            {
-                if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
-                    glfwSetWindowShouldClose(window, true);
+        });
+
+        // Set up mouse button callback for dragging
+        glfwSetMouseButtonCallback(window, (window, button, action, mods) -> {
+            if (button == GLFW_MOUSE_BUTTON_LEFT) {
+                isDragging = action == GLFW_PRESS;
+                if (isDragging) {
+                    try (MemoryStack stack = stackPush()) {
+                        DoubleBuffer xPos = stack.mallocDouble(1);
+                        DoubleBuffer yPos = stack.mallocDouble(1);
+                        glfwGetCursorPos(window, xPos, yPos);
+                        dragStartX = xPos.get(0);
+                        dragStartY = yPos.get(0);
+                    }
                 }
-            });
-
-            // Get the thread stack and push a new frame
-            try (MemoryStack stack = stackPush()) {
-                IntBuffer pWidth = stack.mallocInt(1);
-                IntBuffer pHeight = stack.mallocInt(1);
-
-                // Get the window size passed to glfwCreateWindow
-                glfwGetWindowSize(window, pWidth, pHeight);
-
-                // Get the resolution of the primary monitor
-                GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-                // Center the window
-                glfwSetWindowPos(window, (vidmode.width() - pWidth.get(0)) / 2,
-                        (vidmode.height() - pHeight.get(0)) / 2);
             }
+        });
 
-            glfwMakeContextCurrent(window);
-            GL.createCapabilities();
-
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            gluPerspective(45.0f, (float) 300 / (float) 300, 0.1f, 100.0f);
-            glMatrixMode(GL_MODELVIEW);
-            glLoadIdentity();
-
-            int errorCode = glGetError();
-            if (errorCode != GL_NO_ERROR) {
-                throw new RuntimeException("OpenGL error after context creation: " + errorCode);
+        // Set up cursor movement callback for rotation
+        glfwSetCursorPosCallback(window, (window, xpos, ypos) -> {
+            if (isDragging) {
+                double deltaX = xpos - dragStartX;
+                double deltaY = ypos - dragStartY;
+                angleY += deltaX * speed;
+                angleX += deltaY * speed;
+                dragStartX = xpos;
+                dragStartY = ypos;
             }
-            glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LEQUAL);
-            glClearDepth(1.0f);
-            glfwSwapInterval(1);
+        });
 
-            // Make the window visible
-            glfwShowWindow(window);
+        // Center the window
+        try (MemoryStack stack = stackPush()) {
+            IntBuffer pWidth = stack.mallocInt(1);
+            IntBuffer pHeight = stack.mallocInt(1);
+
+            glfwGetWindowSize(window, pWidth, pHeight);
+
+            GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+            glfwSetWindowPos(window, (vidmode.width() - pWidth.get(0)) / 2,
+                    (vidmode.height() - pHeight.get(0)) / 2);
+        }
+
+        glfwMakeContextCurrent(window);
+        GL.createCapabilities();
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluPerspective(45.0f, (float) 300 / (float) 300, 0.1f, 100.0f);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        int errorCode = glGetError();
+        if (errorCode != GL_NO_ERROR) {
+            throw new RuntimeException("OpenGL error after context creation: " + errorCode);
+        }
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        glClearDepth(1.0f);
+        glfwSwapInterval(1);
+
+        // Make the window visible
+        glfwShowWindow(window);
     }
 
     private void loop() {
